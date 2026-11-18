@@ -31,11 +31,51 @@ export function drawPlayer(ctx, p, pal, t) {
   ctx.ellipse(0, 6, p.r * 1.05, p.r * 0.55, 0, 0, 6.28);
   ctx.fill();
 
+  // The halo goes down first: a soft disc, a hard ring and a slow outer pulse behind the body,
+  // so the lamplighter reads as a figure standing in its own light rather than a glowing dot.
+  if (p.beamOn && !p.overheated) {
+    ctx.globalCompositeOperation = "lighter";
+    const ringPulse = 1 + Math.sin(t * 9) * 0.06;
+
+    const disc = ctx.createRadialGradient(0, 0, p.r * 0.4, 0, 0, p.r * 3.6);
+    disc.addColorStop(0, "#ffffff");
+    disc.addColorStop(0.34, pal.pale);
+    disc.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = disc;
+    ctx.beginPath();
+    ctx.arc(0, 0, p.r * 3.6, 0, 6.28);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, (p.r + 11) * ringPulse, 0, 6.28);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.42;
+    ctx.strokeStyle = pal.pale;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.arc(0, 0, (p.r + 11) * ringPulse, 0, 6.28);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.28;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, (p.r + 24) * ringPulse, 0, 6.28);
+    ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
   // Cloak: a wide teardrop that points where the lamplighter faces.
   ctx.save();
   ctx.rotate(p.angle + Math.PI / 2);
   const cloak = ctx.createLinearGradient(0, -p.r, 0, p.r * 1.8);
-  cloak.addColorStop(0, pal.pale);
+  cloak.addColorStop(0, "#ffffff");
+  cloak.addColorStop(0.38, pal.pale);
   cloak.addColorStop(1, pal.tile);
   ctx.fillStyle = p.hurtFlash > 0 ? "#ffffff" : cloak;
   poly(ctx, [
@@ -46,6 +86,11 @@ export function drawPlayer(ctx, p, pal, t) {
     [-p.r * 0.95, p.r * 0.5],
   ]);
   ctx.fill();
+  // Two outlines: a dark one so the silhouette holds against its own halo, a light one so it
+  // holds against the dark floor. The lamplighter is legible either way.
+  ctx.strokeStyle = pal.deep;
+  ctx.lineWidth = 5;
+  ctx.stroke();
   ctx.strokeStyle = pal.ink;
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -58,6 +103,17 @@ export function drawPlayer(ctx, p, pal, t) {
   ctx.strokeStyle = pal.accent;
   ctx.lineWidth = 2;
   ctx.stroke();
+
+  // A lit face inside the hood: one bright point is what makes a small figure read as a
+  // person at a glance, instead of a dark blob.
+  const face = ctx.createRadialGradient(0, -p.r * 0.1, 0, 0, -p.r * 0.1, p.r * 0.42);
+  face.addColorStop(0, "#ffffff");
+  face.addColorStop(0.42, pal.pale);
+  face.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = face;
+  ctx.beginPath();
+  ctx.arc(0, -p.r * 0.1, p.r * 0.42, 0, 6.28);
+  ctx.fill();
   ctx.restore();
 
   // The lantern itself: the brightest thing on screen, always.
@@ -77,22 +133,6 @@ export function drawPlayer(ctx, p, pal, t) {
   ctx.beginPath();
   ctx.arc(lx, ly, 4.5, 0, 6.28);
   ctx.fill();
-
-  // While the lantern burns, a bright halo ring marks the lamplighter against its own light.
-  if (p.beamOn && !p.overheated) {
-    ctx.globalCompositeOperation = "lighter";
-    const ringPulse = 1 + Math.sin(t * 9) * 0.06;
-    ctx.strokeStyle = pal.ink;
-    ctx.globalAlpha = 0.8;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, (p.r + 12) * ringPulse, 0, 6.28);
-    ctx.stroke();
-    ctx.globalAlpha = 0.28;
-    ctx.lineWidth = 8;
-    ctx.stroke();
-    ctx.globalCompositeOperation = "source-over";
-  }
 
   ctx.restore();
   ctx.globalAlpha = 1;
@@ -116,8 +156,24 @@ function tellAura(ctx, e, pal) {
   ctx.restore();
 }
 
+// A blinded creature wears a dashed, dimmed ring: the flare's mark.
+function blindMark(ctx, e, pal) {
+  if (!e.blind || e.blind <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = pal.ink;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 7]);
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, e.r + 7, 0, 6.28);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 export function drawEnemy(ctx, e, pal, t) {
   tellAura(ctx, e, pal);
+  blindMark(ctx, e, pal);
   ctx.save();
   ctx.translate(e.x, e.y);
   const swell = e.state === "tell" ? 1 + Math.min(1, e.pulse) * 0.16 : 1;
@@ -211,6 +267,54 @@ export function drawEnemy(ctx, e, pal, t) {
       ctx.fill();
       break;
     }
+    case "gloomfin": {
+      // A lantern-fish: tail fin, tall dorsal, and a lure held out in front.
+      const a = Math.atan2(e.vy, e.vx);
+      ctx.rotate(a);
+      // Tail.
+      poly(ctx, [[-e.r * 1.95, 0], [-e.r * 0.85, -e.r * 0.9], [-e.r * 0.85, e.r * 0.9]]);
+      ctx.fillStyle = pal.deep;
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Body.
+      ctx.beginPath();
+      ctx.ellipse(0, 0, e.r * 1.3, e.r * 0.8, 0, 0, 6.28);
+      ctx.fillStyle = body;
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.stroke();
+      // Dorsal fin.
+      poly(ctx, [[-e.r * 0.35, -e.r * 0.6], [e.r * 0.15, -e.r * 1.55], [e.r * 0.62, -e.r * 0.5]]);
+      ctx.fillStyle = pal.pale;
+      ctx.fill();
+      // Ribs.
+      ctx.strokeStyle = pal.deep;
+      ctx.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(i * e.r * 0.45, 0, e.r * 0.42, -1.1, 1.1);
+        ctx.stroke();
+      }
+      // The lure on its stalk.
+      ctx.strokeStyle = pal.pale;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(e.r * 1.0, -e.r * 0.25);
+      ctx.quadraticCurveTo(e.r * 1.75, -e.r * 1.15, e.r * 2.25, -e.r * 0.7);
+      ctx.stroke();
+      ctx.fillStyle = "#fffdf2";
+      ctx.beginPath();
+      ctx.arc(e.r * 2.25, -e.r * 0.7, e.r * 0.24, 0, 6.28);
+      ctx.fill();
+      // Eye.
+      ctx.fillStyle = pal.deep;
+      ctx.beginPath();
+      ctx.arc(e.r * 0.62, -e.r * 0.16, e.r * 0.24, 0, 6.28);
+      ctx.fill();
+      break;
+    }
     case "bellhusk": {
       // A cracked bell, wider at the hem.
       poly(ctx, [
@@ -286,6 +390,53 @@ export function drawEnemy(ctx, e, pal, t) {
       }
       break;
     }
+    case "slaghand": {
+      // A furnace hand: palm up, four fingers and a thumb, cracks glowing through.
+      ctx.rotate(Math.sin(t * 0.9) * 0.16);
+      const lift = e.state === "tell" ? 1 + Math.min(1, e.pulse) * 0.3 : 1;
+      ctx.scale(lift, lift);
+      // Palm.
+      ctx.beginPath();
+      ctx.ellipse(0, e.r * 0.15, e.r * 0.78, e.r * 0.9, 0, 0, 6.28);
+      ctx.fillStyle = body;
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      // Fingers.
+      ctx.strokeStyle = body;
+      ctx.lineWidth = e.r * 0.34;
+      ctx.lineCap = "round";
+      for (let i = 0; i < 4; i++) {
+        const a = -Math.PI / 2 + (i - 1.5) * 0.36;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * e.r * 0.5, Math.sin(a) * e.r * 0.5);
+        ctx.lineTo(Math.cos(a) * e.r * 1.55, Math.sin(a) * e.r * 1.55);
+        ctx.stroke();
+      }
+      // Thumb.
+      ctx.beginPath();
+      ctx.moveTo(-e.r * 0.55, e.r * 0.25);
+      ctx.lineTo(-e.r * 1.5, e.r * 0.05);
+      ctx.stroke();
+      ctx.lineCap = "butt";
+      // Cracks of molten light across the palm.
+      ctx.strokeStyle = pal.warm;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-e.r * 0.4, -e.r * 0.2 + i * e.r * 0.32);
+        ctx.lineTo(0, -e.r * 0.05 + i * e.r * 0.3);
+        ctx.lineTo(e.r * 0.42, -e.r * 0.22 + i * e.r * 0.32);
+        ctx.stroke();
+      }
+      // The knuckle eye.
+      ctx.fillStyle = pal.ink;
+      ctx.beginPath();
+      ctx.arc(0, e.r * 0.05, e.r * 0.2, 0, 6.28);
+      ctx.fill();
+      break;
+    }
     case "echo": {
       // A hollow ring, doubled, so it reads as a reflection.
       ctx.strokeStyle = body;
@@ -347,6 +498,42 @@ export function drawEnemy(ctx, e, pal, t) {
       }
       ctx.fillStyle = pal.danger;
       ctx.fillRect(-e.r * 0.22, -e.r * 0.22, e.r * 0.44, e.r * 0.44);
+      break;
+    }
+    case "voidgazer": {
+      // A single vast eye, lashed all the way round, that follows the player.
+      ctx.rotate(e.angle);
+      // Lashes.
+      ctx.strokeStyle = pal.pale;
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * e.r * 1.05, Math.sin(a) * e.r * 1.05);
+        ctx.lineTo(Math.cos(a) * e.r * (1.55 + Math.sin(t * 3 + i) * 0.1), Math.sin(a) * e.r * (1.55 + Math.sin(t * 3 + i) * 0.1));
+        ctx.stroke();
+      }
+      // Sclera.
+      ctx.beginPath();
+      ctx.arc(0, 0, e.r, 0, 6.28);
+      ctx.fillStyle = body;
+      ctx.fill();
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      // Iris and pupil, aimed forward.
+      ctx.fillStyle = pal.deep;
+      ctx.beginPath();
+      ctx.ellipse(e.r * 0.18, 0, e.r * 0.62, e.r * 0.62, 0, 0, 6.28);
+      ctx.fill();
+      ctx.fillStyle = pal.danger;
+      ctx.beginPath();
+      ctx.arc(e.r * 0.24, 0, e.r * 0.28, 0, 6.28);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(e.r * 0.38, -e.r * 0.16, e.r * 0.1, 0, 6.28);
+      ctx.fill();
       break;
     }
     default:
@@ -512,6 +699,51 @@ export function drawPickup(ctx, p, pal, t) {
   ctx.globalAlpha = 1;
   ctx.fillStyle = pal.ink;
   poly(ctx, [[p.x, p.y - p.r], [p.x + p.r, p.y], [p.x, p.y + p.r], [p.x - p.r, p.y]]);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Salvage: a scrap tag, drawn small and warm so it reads differently from a soul ember.
+export function drawSalvage(ctx, p, pal, t) {
+  const pulse = 1 + Math.sin(t * 7 + p.phase) * 0.2;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(Math.sin(t * 2 + p.phase) * 0.5);
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, p.r * 3.2 * pulse);
+  glow.addColorStop(0, pal.warm);
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, p.r * 3.2 * pulse, 0, 6.28);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = pal.warm;
+  ctx.strokeStyle = pal.ink;
+  ctx.lineWidth = 1.5;
+  poly(ctx, [[-p.r, -p.r * 0.7], [p.r * 0.7, -p.r * 0.7], [p.r, 0], [p.r * 0.7, p.r * 0.7], [-p.r, p.r * 0.7]]);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// The orbiting wisp: a small bright mote that circles the lamplighter.
+export function drawWisp(ctx, w, pal, t) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  const glow = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 22);
+  glow.addColorStop(0, "#ffffff");
+  glow.addColorStop(0.35, pal.accent);
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.globalAlpha = 0.75;
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(w.x, w.y, 22, 0, 6.28);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#fffdf2";
+  ctx.beginPath();
+  ctx.arc(w.x, w.y, 3.2 + Math.sin(t * 8 + w.phase) * 0.6, 0, 6.28);
   ctx.fill();
   ctx.restore();
 }
@@ -686,6 +918,127 @@ export function drawGlyph(ctx, shape, x, y, size, color) {
       ctx.quadraticCurveTo(0, s * 0.2, s, -s * 0.6);
       ctx.quadraticCurveTo(0, s, -s, s * 0.6);
       ctx.stroke();
+      break;
+    case "chain":
+      // Three links in a run: lightning that hops.
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.ellipse(i * s * 0.55, 0, s * 0.34, s * 0.5, i * 0.4, 0, 6.28);
+        ctx.stroke();
+      }
+      break;
+    case "wisp":
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.34, 0, 6.28);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.95, s * 0.42, 0.6, 0, 6.28);
+      ctx.stroke();
+      break;
+    case "split":
+      // One beam leaving, two arriving.
+      ctx.beginPath();
+      ctx.moveTo(-s, 0);
+      ctx.lineTo(-s * 0.1, 0);
+      ctx.moveTo(-s * 0.1, 0);
+      ctx.lineTo(s, -s * 0.62);
+      ctx.moveTo(-s * 0.1, 0);
+      ctx.lineTo(s, s * 0.62);
+      ctx.stroke();
+      break;
+    case "trail":
+      ctx.beginPath();
+      ctx.moveTo(-s, s * 0.4);
+      ctx.quadraticCurveTo(-s * 0.2, -s * 0.8, s * 0.9, s * 0.1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-s * 0.55, s * 0.35, s * 0.2, 0, 6.28);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s * 0.15, s * 0.1, s * 0.16, 0, 6.28);
+      ctx.fill();
+      break;
+    case "chill":
+      // A falling flake over a slowing ring.
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(-Math.cos(a) * s * 0.55, -s * 0.75 - Math.sin(a) * s * 0.55);
+        ctx.lineTo(Math.cos(a) * s * 0.55, -s * 0.75 + Math.sin(a) * s * 0.55);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.45, s * 0.9, s * 0.35, 0, 0, 6.28);
+      ctx.stroke();
+      break;
+    case "dazzle":
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.3, 0, 6.28);
+      ctx.fill();
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const r0 = s * 0.45;
+        const r1 = s * (i % 2 === 0 ? 1 : 0.72);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.stroke();
+      }
+      break;
+    case "vent":
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.42, 0, 6.28);
+      ctx.stroke();
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.6;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6);
+        ctx.lineTo(Math.cos(a) * s * 1.05, Math.sin(a) * s * 1.05);
+        ctx.stroke();
+      }
+      break;
+    case "lodestone":
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.42, 0, 6.28);
+      ctx.fill();
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6);
+        ctx.lineTo(Math.cos(a) * s * 1.05, Math.sin(a) * s * 1.05);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 1.15, 0, 6.28);
+      ctx.globalAlpha = 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      break;
+    case "stone":
+      poly(ctx, [[0, -s], [s * 0.8, -s * 0.3], [s * 0.55, s * 0.85], [-s * 0.6, s * 0.8], [-s * 0.85, -s * 0.25]]);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.28, 0, 6.28);
+      ctx.fill();
+      break;
+    case "glass":
+      poly(ctx, [[0, -s], [s * 0.75, 0], [0, s], [-s * 0.75, 0]]);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.4, -s * 0.2);
+      ctx.lineTo(s * 0.4, s * 0.2);
+      ctx.stroke();
+      break;
+    case "rosary":
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 0.8, 0.4, Math.PI * 2 - 0.4);
+      ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        const a = 0.4 + (i / 4) * (Math.PI * 2 - 0.8);
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * s * 0.8, Math.sin(a) * s * 0.8, s * 0.16, 0, 6.28);
+        ctx.fill();
+      }
       break;
     default:
       ctx.beginPath();

@@ -1,6 +1,6 @@
 // The three keepers of the lighthouse. Each has a named health bar, three attacks and two
 // phase breaks at 60% and 30% health.
-import { ARENA, BOSSES, FLOORS } from "../config.js";
+import { ARENA, BOSSES, FLOORS, FEEL } from "../config.js";
 import { rand, clamp, angleTo, dist, pointInArena } from "../random.js";
 import { spawnRadial, spawnSpread, spawnEnemyBullet, spawnRing } from "./projectiles.js";
 import { burst, embers } from "./particles.js";
@@ -136,6 +136,7 @@ function updatePhase(run, boss) {
     run.bannerTitle = next === 3 ? `${boss.name} BREAKS` : `${boss.name} SHIFTS`;
     run.bannerSub = next === 3 ? "final phase" : "second phase";
     run.shake = Math.max(run.shake, 0.6);
+    run.hitstop = Math.max(run.hitstop, FEEL.phaseHitstop);
     Sfx.bossRoar();
     burst(run, boss.x, boss.y, boss.palette.accent, 34, 340);
   }

@@ -50,6 +50,7 @@ export function resetPlayer(p, build) {
   p.overheated = false;
   p.flare = FLARE.start;
   p.beamOn = false;
+  p.beamRays = [];
   p.trail.length = 0;
   p.kills = 0;
 }

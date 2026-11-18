@@ -1,4 +1,4 @@
-// Relics: one per boss, three in a full run, shown as icons beside the hull pips.
+// Relics: a pool of six, one granted per keeper, shown as icons beside the hull pips.
 import { Sfx } from "../audio.js";
 import { syncMaxHull, healHull } from "../run.js";
 
@@ -35,16 +35,51 @@ export const RELICS = [
       /* the trail is read directly from run.relics in combat */
     },
   },
+  {
+    id: "wickstone",
+    name: "Wick Stone",
+    shape: "stone",
+    color: "#ffd27a",
+    desc: "+25% cadence, +10% speed",
+    apply(run) {
+      run.build.fireRate += 0.25;
+      run.build.speed += 0.1;
+    },
+  },
+  {
+    id: "tideglass",
+    name: "Tide Glass",
+    shape: "glass",
+    color: "#7ad7ff",
+    desc: "bolts pierce +2, +10% damage",
+    apply(run) {
+      run.build.pierce += 2;
+      run.build.damage += 0.1;
+    },
+  },
+  {
+    id: "ironrosary",
+    name: "Iron Rosary",
+    shape: "rosary",
+    color: "#c9a7ff",
+    desc: "+2 max hull, heal 2",
+    apply(run) {
+      run.build.maxHull += 2;
+      syncMaxHull(run);
+      healHull(run, 2);
+    },
+  },
 ];
 
 export function relicById(id) {
   return RELICS.find((r) => r.id === id) || null;
 }
 
-// Bosses drop the next relic in order, so a run always ends with all three.
+// Keepers drop a relic nobody has yet, picked from what is left in the pool.
 export function grantBossRelic(run) {
-  const next = RELICS.find((r) => !run.relics.includes(r.id));
-  if (!next) return null;
+  const pool = RELICS.filter((r) => !run.relics.includes(r.id));
+  if (pool.length === 0) return null;
+  const next = pool[Math.floor(run.rng() * pool.length)];
   run.relics.push(next.id);
   next.apply(run);
   Sfx.relic();

@@ -42,8 +42,14 @@ function buildDecor(seed, floorIndex) {
     });
   }
   for (let i = 0; i < 120; i++) {
-    decor.bricks.push({ x: rand(rng, 0, WORLD.w), y: rand(rng, 0, WORLD.h), w: rand(rng, 34, 64), shade: rng() });
+    decor.bricks.push({ x: rand(rng, 0, WORLD.w), y: rand(rng, 120, WORLD.h - 40), w: rand(rng, 34, 64), shade: rng() });
   }
+  // Wall braziers: fixed warm pools so the corners of a room are never dead black.
+  decor.braziers = [
+    { x: 150, y: 700, r: 168, phase: rand(rng, 0, 6.28) },
+    { x: 1140, y: 690, r: 150, phase: rand(rng, 0, 6.28) },
+    { x: 700, y: 716, r: 132, phase: rand(rng, 0, 6.28) },
+  ];
   return decor;
 }
 
@@ -144,6 +150,44 @@ function drawRustChapel(ctx, pal, decor, t) {
   for (const b of decor.bricks) {
     ctx.fillStyle = b.shade > 0.72 ? "rgba(194,65,12,0.14)" : "rgba(58,29,14,0.35)";
     ctx.fillRect(b.x, b.y, b.w, 22);
+  }
+
+  // Braziers: a warm pool, an iron bowl and a flame that never settles.
+  for (const b of decor.braziers || []) {
+    const flick = 0.86 + Math.sin(t * 7 + b.phase) * 0.1 + Math.sin(t * 3.1 + b.phase) * 0.05;
+    const g = ctx.createRadialGradient(b.x, b.y - 10, 4, b.x, b.y - 10, b.r * flick);
+    g.addColorStop(0, "rgba(255,214,140,0.40)");
+    g.addColorStop(0.34, "rgba(255,140,50,0.15)");
+    g.addColorStop(1, "rgba(255,90,30,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y - 10, b.r * flick, 0, 6.28);
+    ctx.fill();
+
+    // Torchlight on the wall: pure light, no body, so it can never be mistaken for a figure.
+    ctx.fillStyle = "#2a1710";
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 6, 9, 5, 0, 0, 6.28);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,179,71,0.45)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    for (let i = 0; i < 4; i++) {
+      const a = b.phase + i * 1.9 + t * 0.6;
+      const rr = 10 + ((i * 7 + t * 9) % 26);
+      ctx.globalAlpha = 0.5 * (1 - rr / 40);
+      ctx.fillStyle = "rgba(255,214,140,0.9)";
+      ctx.fillRect(b.x + Math.cos(a) * rr, b.y - 6 + Math.sin(a) * rr * 0.6, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = "rgba(255,226,168,0.92)";
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y - 18 * flick);
+    ctx.quadraticCurveTo(b.x + 9, b.y - 2, b.x, b.y + 5);
+    ctx.quadraticCurveTo(b.x - 9, b.y - 2, b.x, b.y - 18 * flick);
+    ctx.fill();
   }
 }
 
@@ -270,7 +314,7 @@ export function drawFrame(ctx, pal, run) {
   ctx.restore();
 }
 
-export function drawVignette(ctx, strength = 0.75) {
+export function drawVignette(ctx, strength = 0.58) {
   const g = ctx.createRadialGradient(WORLD.w / 2, WORLD.h / 2, WORLD.h * 0.28, WORLD.w / 2, WORLD.h / 2, WORLD.h * 0.86);
   g.addColorStop(0, "rgba(0,0,0,0)");
   g.addColorStop(1, `rgba(0,0,0,${strength})`);

@@ -15,7 +15,7 @@ export const FLOORS = [
     id: 1,
     name: "The Kelp Stair",
     subtitle: "salt, and the slow green dark",
-    enemies: ["drifter", "sporeling", "anemone"],
+    enemies: ["drifter", "sporeling", "anemone", "gloomfin"],
     boss: "kelpchoir",
     bossName: "THE KELP CHOIR",
     palette: {
@@ -33,7 +33,7 @@ export const FLOORS = [
     id: 2,
     name: "The Rust Chapel",
     subtitle: "where the bell was cast and cracked",
-    enemies: ["bellhusk", "cinderling", "chainwarden"],
+    enemies: ["bellhusk", "cinderling", "chainwarden", "slaghand"],
     boss: "bellwarden",
     bossName: "THE BELL WARDEN",
     palette: {
@@ -51,7 +51,7 @@ export const FLOORS = [
     id: 3,
     name: "The Blind Deep",
     subtitle: "no floor, no ceiling, no mercy",
-    enemies: ["echo", "maw", "warden"],
+    enemies: ["echo", "maw", "warden", "voidgazer"],
     boss: "blindlamp",
     bossName: "THE BLIND LAMP",
     palette: {
@@ -68,6 +68,10 @@ export const FLOORS = [
 ];
 
 export const ROOMS_PER_FLOOR = 3; // three fight rooms, then the boss room
+
+// The route is the same every descent: three fights, the keeper, then the shop
+// between floors. The route strip draws straight from this shape.
+export const ROUTE_PER_FLOOR = ROOMS_PER_FLOOR + 2; // fights + boss + shop
 
 export const PLAYER = {
   r: 13,
@@ -121,18 +125,42 @@ export const SCORE = {
   waveBanner: 1.7,
 };
 
+// Salvage: the currency the shop takes. Kills drop it, so every room you fight
+// through is worth something to spend between floors.
+export const SALVAGE = {
+  perKill: 0.34,
+  min: 1,
+  roomClear: 5,
+  eliteBonus: 40,
+  restBonus: 18,
+  start: 12,
+};
+
+export const SHOP = {
+  itemCount: 3,
+  healPrice: 26,
+  healAmount: 2,
+  hullPrice: 62,
+  hullAmount: 1,
+  basePrice: { common: 32, uncommon: 46, rare: 66 },
+  eliteBonus: 26,
+};
+
 // Enemy archetypes. `tell` is the wind-up in seconds before the attack lands:
 // every one of them flashes or swells for that long first.
 export const ENEMY_TYPES = {
   drifter: { name: "Drifter", hp: 16, r: 15, speed: 66, score: 12, tell: 0.5 },
   sporeling: { name: "Sporeling", hp: 11, r: 13, speed: 96, score: 14, tell: 0.5, range: 255 },
   anemone: { name: "Anemone", hp: 24, r: 18, speed: 0, score: 18, tell: 0.7 },
+  gloomfin: { name: "Gloomfin", hp: 20, r: 16, speed: 92, score: 20, tell: 0.55, range: 215 },
   bellhusk: { name: "Bellhusk", hp: 30, r: 18, speed: 74, score: 20, tell: 0.75 },
   cinderling: { name: "Cinderling", hp: 5, r: 10, speed: 218, score: 10, tell: 0.26 },
   chainwarden: { name: "Chainwarden", hp: 38, r: 20, speed: 50, score: 26, tell: 0.65 },
+  slaghand: { name: "Slaghand", hp: 46, r: 22, speed: 44, score: 30, tell: 0.9 },
   echo: { name: "Echo", hp: 20, r: 15, speed: 62, score: 22, tell: 0.45 },
   maw: { name: "Maw", hp: 22, r: 16, speed: 92, score: 18, tell: 0.45 },
   warden: { name: "Warden", hp: 68, r: 24, speed: 36, score: 34, tell: 0.85 },
+  voidgazer: { name: "Voidgazer", hp: 34, r: 19, speed: 30, score: 32, tell: 1.0 },
 };
 
 // Bullet speeds and colours are floor-tinted at spawn time, not stored per enemy.
@@ -159,4 +187,16 @@ export const UI = {
   ink: "#eef7ff",
   dim: "#7f93a8",
   panel: "rgba(6,12,20,0.82)",
+};
+
+// The feel knobs, in one place so the timings are consistent everywhere.
+export const FEEL = {
+  killHitstop: 0.04,
+  phaseHitstop: 0.09,
+  hurtHitstop: 0.07,
+  chromaTime: 0.34,
+  lowHullAt: 2,
+  critSize: 38,
+  numberSize: 21,
+  clearBanner: 2.2,
 };

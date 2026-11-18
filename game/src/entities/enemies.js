@@ -1,5 +1,5 @@
-// The nine creatures of the descent. Each one has its own silhouette, its own approach and a
-// visible wind-up before anything it does can hurt the player.
+// The twelve creatures of the descent: four on every floor, each with its own silhouette,
+// its own approach and a visible wind-up before anything it does can hurt the player.
 import { ARENA, ENEMY_TYPES, BULLET } from "../config.js";
 import { rand, dist, angleTo, clamp, shortestAngle, pointInArena } from "../random.js";
 import { spawnEnemyBullet, spawnRadial, spawnSpread, spawnRing } from "./projectiles.js";
@@ -10,7 +10,7 @@ let nextId = 1;
 // Health grows with the floor and with the room, so floor 3 room 2 is a real fight.
 export function makeEnemy(run, kind, x, y, opts = {}) {
   const type = ENEMY_TYPES[kind];
-  const scale = (1 + 0.16 * run.floor) * (1 + 0.09 * run.room);
+  const scale = (1 + 0.16 * run.floor) * (1 + 0.09 * run.room) * (opts.tough || 1);
   const hp = opts.hp !== undefined ? opts.hp : Math.round(type.hp * scale);
   const e = {
     id: nextId++,
@@ -24,7 +24,7 @@ export function makeEnemy(run, kind, x, y, opts = {}) {
     hp,
     maxHp: hp,
     speed: type.speed * (1 + 0.05 * run.floor),
-    score: Math.round(type.score * (1 + 0.25 * run.floor)),
+    score: Math.round(type.score * (1 + 0.25 * run.floor) * (opts.bounty || 1)),
     tellTime: type.tell,
     state: "idle",
     timer: rand(run.rng, 0.1, 0.7),
@@ -34,10 +34,12 @@ export function makeEnemy(run, kind, x, y, opts = {}) {
     pulse: 0,
     hitFlash: 0,
     slow: 0,
+    blind: 0,
     harmful: false,
     gen: opts.gen || 0,
     dead: false,
     wobble: rand(run.rng, 0, Math.PI * 2),
+    orbit: rand(run.rng, 0, Math.PI * 2) > 0 ? 1 : -1,
     chargeDirX: 0,
     chargeDirY: 0,
     homeX: x,
@@ -48,6 +50,11 @@ export function makeEnemy(run, kind, x, y, opts = {}) {
     e.cooldown = 0;
   }
   if (kind === "chainwarden") e.angle = rand(run.rng, 0, Math.PI * 2);
+  if (kind === "gloomfin") e.orbit = run.rng() < 0.5 ? -1 : 1;
+  if (kind === "voidgazer") {
+    e.cooldown = rand(run.rng, 1.0, 2.0);
+    e.angle = rand(run.rng, 0, Math.PI * 2);
+  }
   return e;
 }
 
@@ -89,9 +96,17 @@ export function updateEnemy(run, e, dt) {
   e.t += dt;
   e.hitFlash = Math.max(0, e.hitFlash - dt * 5);
   e.slow = Math.max(0, e.slow - dt);
+  e.blind = Math.max(0, (e.blind || 0) - dt);
   const slowFactor = e.slow > 0 ? 0.55 : 1;
   const d = dist(e.x, e.y, p.x, p.y);
   const aim = angleTo(e.x, e.y, p.x, p.y);
+
+  // A blinded creature loses its wind-up and has to start again.
+  if (e.blind > 0 && e.state === "tell") {
+    e.state = "idle";
+    e.timer = 0.5;
+    e.pulse = 0;
+  }
 
   if (e.state === "tell") {
     e.timer -= dt;
@@ -125,6 +140,9 @@ export function updateEnemy(run, e, dt) {
     case "anemone":
       steerAnemone(run, e, dt);
       break;
+    case "gloomfin":
+      steerGloomfin(run, e, dt, d, aim, slowFactor);
+      break;
     case "bellhusk":
       steerBellhusk(run, e, dt, d, aim, slowFactor);
       break;
@@ -134,6 +152,9 @@ export function updateEnemy(run, e, dt) {
     case "chainwarden":
       steerChainwarden(run, e, dt, d, aim, slowFactor);
       break;
+    case "slaghand":
+      steerSlaghand(run, e, dt, d, aim, slowFactor);
+      break;
     case "echo":
       steerEcho(run, e, dt, d, aim, slowFactor);
       break;
@@ -142,6 +163,9 @@ export function updateEnemy(run, e, dt) {
       break;
     case "warden":
       steerWarden(run, e, dt, d, aim, slowFactor);
+      break;
+    case "voidgazer":
+      steerVoidgazer(run, e, dt, d, aim, slowFactor);
       break;
     default:
       break;
@@ -173,6 +197,13 @@ function onTellDone(run, e, d, aim) {
       e.state = "idle";
       e.cooldown = 2.7;
       break;
+    case "gloomfin":
+      // Two shots from the lure, one on either side of the aim line.
+      spawnSpread(run, e.x, e.y, aim, 2, 0.2, 196, { r: 7, color: run.palette.pale });
+      burst(run, e.x, e.y, run.palette.pale, 8, 110);
+      e.state = "idle";
+      e.cooldown = 1.9;
+      break;
     case "bellhusk":
       beginAct(e, 0.55);
       e.chargeDirX = Math.cos(aim);
@@ -189,6 +220,14 @@ function onTellDone(run, e, d, aim) {
       beginAct(e, 0.22);
       e.vx = Math.cos(e.angle) * 300;
       e.vy = Math.sin(e.angle) * 300;
+      break;
+    case "slaghand":
+      // The palm comes down: a tight shockwave centred on the hand itself.
+      beginAct(e, 0.28);
+      spawnRing(run, e.x, e.y, 210, 340, 1, { color: run.palette.warm, width: 13 });
+      burst(run, e.x, e.y, run.palette.warm, 20, 250);
+      e.state = "idle";
+      e.cooldown = 2.3;
       break;
     case "echo":
       // Blink to the far side of the player, then fire the three-shot spread.
@@ -216,6 +255,13 @@ function onTellDone(run, e, d, aim) {
       beginAct(e, 0.3);
       spawnRing(run, e.x, e.y, 260, 330, 1, { color: run.palette.pale, width: 12 });
       burst(run, e.x, e.y, run.palette.warm, 18, 260);
+      break;
+    case "voidgazer":
+      // A slow, wide fan: readable, dodgeable, and it covers the retreat.
+      spawnSpread(run, e.x, e.y, aim, 5, 0.13, 176, { r: 8, color: run.palette.pale });
+      burst(run, e.x, e.y, run.palette.accent, 12, 150);
+      e.state = "idle";
+      e.cooldown = 2.5;
       break;
     default:
       break;
@@ -260,6 +306,27 @@ function steerAnemone(run, e, dt) {
   if (e.state === "idle") {
     e.cooldown -= dt;
     if (e.cooldown <= 0) beginTell(e, e.tellTime);
+  }
+}
+
+// The Gloomfin circles at a fixed radius like a fish around a light, firing on the turn.
+function steerGloomfin(run, e, dt, d, aim, slow) {
+  const range = ENEMY_TYPES.gloomfin.range;
+  e.angle += e.orbit * dt * 1.15;
+  if (e.state === "idle") {
+    const want = range;
+    const radial = (d - want) * 1.6;
+    const tangent = e.speed * slow * 0.9;
+    const tx = Math.cos(e.angle + Math.PI / 2) * tangent * e.orbit;
+    const ty = Math.sin(e.angle + Math.PI / 2) * tangent * e.orbit;
+    const ax = Math.cos(aim + Math.PI) * radial;
+    const ay = Math.sin(aim + Math.PI) * radial;
+    e.vx += ((tx + ax) - e.vx) * Math.min(1, dt * 3.2);
+    e.vy += ((ty + ay) - e.vy) * Math.min(1, dt * 3.2);
+    e.cooldown -= dt;
+    if (e.cooldown <= 0 && d < 460) beginTell(e, e.tellTime);
+  } else {
+    drift(e, dt);
   }
 }
 
@@ -311,6 +378,21 @@ function steerChainwarden(run, e, dt, d, aim, slow) {
   }
 }
 
+// The Slaghand walks in slow and heavy, then brings the whole palm down.
+function steerSlaghand(run, e, dt, d, aim, slow) {
+  if (e.state === "idle") {
+    if (d > 120) seek(e, run.player.x, run.player.y, e.speed * slow, dt);
+    else drift(e, dt);
+    e.cooldown -= dt;
+    if (d < 190 && e.cooldown <= 0) beginTell(e, e.tellTime);
+  } else if (e.state === "act") {
+    e.vx = 0;
+    e.vy = 0;
+  } else {
+    drift(e, dt);
+  }
+}
+
 function steerEcho(run, e, dt, d, aim, slow) {
   if (e.state === "idle") {
     if (d > 300) seek(e, run.player.x, run.player.y, e.speed * slow, dt);
@@ -335,6 +417,20 @@ function steerWarden(run, e, dt, d, aim, slow) {
     seek(e, run.player.x, run.player.y, e.speed * slow, dt);
     e.cooldown -= dt;
     if (d < 210 && e.cooldown <= 0) beginTell(e, e.tellTime);
+  } else {
+    drift(e, dt);
+  }
+}
+
+// The Voidgazer keeps its distance and stares: it only turns, never rushes.
+function steerVoidgazer(run, e, dt, d, aim, slow) {
+  e.angle += clamp(shortestAngle(e.angle, aim), -2.4 * dt, 2.4 * dt);
+  if (e.state === "idle") {
+    if (d < 250) seek(e, e.x * 2 - run.player.x, e.y * 2 - run.player.y, e.speed * slow, dt);
+    else if (d > 480) seek(e, run.player.x, run.player.y, e.speed * slow, dt);
+    else drift(e, dt);
+    e.cooldown -= dt;
+    if (e.cooldown <= 0) beginTell(e, e.tellTime);
   } else {
     drift(e, dt);
   }
@@ -382,6 +478,13 @@ export function killEnemy(run, e) {
   }
   if (e.kind === "warden") {
     spawnRing(run, e.x, e.y, 240, 340, 1, { color: run.palette.pale, width: 12 });
+  }
+  if (e.kind === "voidgazer") {
+    // The stare goes out: six slow orbs drift away and fade, harmless.
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + e.t;
+      burst(run, e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, run.palette.accent, 3, 90);
+    }
   }
 }
 

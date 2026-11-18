@@ -1,4 +1,4 @@
-// The draft pool: eighteen upgrades, three offered after every non-boss room.
+// The draft pool: twenty-six upgrades, three offered after every non-boss room.
 import { syncMaxHull, healHull } from "../run.js";
 import { shuffle } from "../random.js";
 import { Sfx } from "../audio.js";
@@ -95,6 +95,46 @@ export const UPGRADES = [
     desc: "hits slow enemies 45%",
     apply(b) { b.slow += 1; },
   },
+  {
+    id: "chain", name: "Chain Lightning", shape: "chain", rarity: "uncommon", max: 3,
+    desc: "hits arc to +1 nearby enemy",
+    apply(b) { b.chain += 1; },
+  },
+  {
+    id: "wisp", name: "Orbiting Wisp", shape: "wisp", rarity: "rare", max: 3,
+    desc: "+1 wisp circles you and fires",
+    apply(b) { b.wisp += 1; },
+  },
+  {
+    id: "splitbeam", name: "Twin Shutter", shape: "split", rarity: "rare", max: 1,
+    desc: "the beam forks in two at half damage",
+    apply(b) { b.splitBeam = 1; },
+  },
+  {
+    id: "burntrail", name: "Cinder Wake", shape: "trail", rarity: "uncommon", max: 2,
+    desc: "your dash leaves a burning trail",
+    apply(b) { b.burnTrail += 1; },
+  },
+  {
+    id: "killslow", name: "Grave Chill", shape: "chill", rarity: "uncommon", max: 2,
+    desc: "kills chill everything nearby",
+    apply(b) { b.killSlow += 1; },
+  },
+  {
+    id: "flareblind", name: "Dazzling Salt", shape: "dazzle", rarity: "rare", max: 1,
+    desc: "the flare blinds creatures for 1s",
+    apply(b) { b.flareBlind = 1; },
+  },
+  {
+    id: "ventshock", name: "Vent Hammer", shape: "vent", rarity: "rare", max: 2,
+    desc: "overheat vents a shockwave",
+    apply(b) { b.ventShock += 1; },
+  },
+  {
+    id: "lodestone", name: "Lodestone", shape: "lodestone", rarity: "rare", max: 1,
+    desc: "embers and salvage fly in from anywhere",
+    apply(b) { b.lodestone = 1; },
+  },
 ];
 
 const RARITY_WEIGHT = { common: 62, uncommon: 30, rare: 12 };
@@ -164,6 +204,8 @@ export function buildPower(run) {
   const b = run.build;
   return Math.round(
     b.damage * 10 + b.fireRate * 8 + b.beamWidth * 6 + b.heatCap / 10 + b.dashCharges * 6 +
-    b.flareRadius * 5 + b.maxHull * 6 + b.pierce * 4 + b.crit * 30 + b.speed * 6 + b.thorns * 0.4,
+    b.flareRadius * 5 + b.maxHull * 6 + b.pierce * 4 + b.crit * 30 + b.speed * 6 + b.thorns * 0.4 +
+    b.chain * 5 + b.wisp * 7 + b.splitBeam * 9 + b.burnTrail * 5 + b.killSlow * 4 +
+    b.flareBlind * 4 + b.ventShock * 6 + b.lodestone * 3,
   );
 }

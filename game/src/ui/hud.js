@@ -1,4 +1,4 @@
-// The HUD: hull, relics, floor and room, boss bar, score and combo, heat, flare and dash.
+// The HUD: hull, relics, floor and room, boss bar, score and combo, salvage, heat, flare, dash.
 // Everything here is sized to stay readable at a third of the canvas.
 import { WORLD, ARENA, UI, FLARE, DASH, ROOMS_PER_FLOOR } from "../config.js";
 import { floorOf, isBossRoom } from "../run.js";
@@ -65,6 +65,15 @@ function drawFloorLabel(ctx, run, pal) {
   ctx.fillStyle = isBossRoom(run) ? pal.danger : pal.pale;
   ctx.font = `bold 22px ${UI.font}`;
   ctx.fillText(label, 34, 104);
+
+  // The room modifier, when the route choice gave one.
+  if (run.roomMod && run.room === 0 && !isBossRoom(run)) {
+    const tag = run.roomMod === "elite" ? "ELITE" : "REST";
+    const tx = 34 + ctx.measureText(label).width + 16;
+    ctx.fillStyle = run.roomMod === "elite" ? pal.danger : pal.accent;
+    ctx.font = `bold 18px ${UI.font}`;
+    ctx.fillText(tag, tx, 104);
+  }
 }
 
 function drawBossBar(ctx, run, pal) {
@@ -221,6 +230,39 @@ function drawGauges(ctx, run, pal) {
   ctx.fillText("SPACE", dashX + ((build.dashCharges - 1) * 44) / 2, cy - 40);
 }
 
+// Salvage: a scrap tag and a count, in the floor's warm colour so it reads as money.
+function drawSalvageCount(ctx, run, pal) {
+  const x = 392;
+  const y = WORLD.h - 24;
+  ctx.textAlign = "left";
+  ctx.font = `bold 21px ${UI.font}`;
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillText(`${run.kills} KILLS`, x, y);
+  const w1 = ctx.measureText(`${run.kills} KILLS`).width;
+  ctx.fillStyle = "rgba(255,255,255,0.32)";
+  ctx.fillText("·", x + w1 + 12, y);
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillText(`${run.roomsCleared} ROOMS`, x + w1 + 26, y);
+  const w2 = ctx.measureText(`${run.roomsCleared} ROOMS`).width;
+
+  const sx = x + w1 + 26 + w2 + 28;
+  ctx.fillStyle = pal.warm;
+  ctx.strokeStyle = pal.warm;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx - 9, y - 15);
+  ctx.lineTo(sx + 4, y - 15);
+  ctx.lineTo(sx + 9, y - 9);
+  ctx.lineTo(sx + 4, y - 3);
+  ctx.lineTo(sx - 9, y - 3);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = pal.ink;
+  ctx.font = `bold 21px ${UI.font}`;
+  ctx.fillText(`SALVAGE ${run.salvage}`, sx + 18, y);
+}
+
 export function drawHud(ctx, run) {
   const pal = floorOf(run).palette;
 
@@ -235,10 +277,5 @@ export function drawHud(ctx, run) {
   drawBossBar(ctx, run, pal);
   drawHeat(ctx, run, pal);
   drawGauges(ctx, run, pal);
-
-  // Kills in the middle of the bottom strip: a small, honest run stat.
-  ctx.textAlign = "center";
-  ctx.font = `bold 22px ${UI.font}`;
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.fillText(`${run.kills} KILLS   ${run.roomsCleared} ROOMS`, WORLD.w / 2 - 40, WORLD.h - 30);
+  drawSalvageCount(ctx, run, pal);
 }

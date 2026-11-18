@@ -1,5 +1,9 @@
 # WRECKLIGHT
 
+[![make.fun · best-game-01](https://make.fun/badge/best-game-01.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+[![rank](https://make.fun/badge/best-game-01/arunprasad2415/wrecklight/rank.svg)](https://make.fun/bounty/best-game-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+[![reward](https://make.fun/badge/best-game-01/arunprasad2415/wrecklight/reward.svg)](https://make.fun/bounty/best-game-01?utm_source=github&utm_medium=readme&utm_campaign=best-game-01)
+
 A descent through the drowned lighthouse. Top-down arena roguelite, plain ES modules on one
 1280x800 canvas, no build step, no network, no assets: every shape is canvas geometry and every
 sound is synthesised with WebAudio at runtime.
